@@ -1,10 +1,102 @@
 import math
 import random
+import numpy as np
 
 # --- Funções Objetivo ---
-# Exemplo para a primeira função: f(x1,x2) = x1^2 + x2^2
+
+# Função 1 [cite: 29]
+# f(x1,x2) = x1^2 + x2^2
+# Domínio: x1, x2 em [-100, 100]
+# Objetivo: Minimização
 def funcao_objetivo_1(x1, x2):
     return x1**2 + x2**2
+
+# Função 2 [cite: 31]
+# f(x1,x2) = exp(-(x1^2+x2^2)) + 2*exp(-((x1-1.7)^2+(x2-1.7)^2))
+# Domínio: x1 em [-2,4], x2 em [-2,5]
+# Objetivo: Maximização
+def funcao_objetivo_2(x1, x2):
+    term1 = np.exp(-(x1**2 + x2**2))
+    term2 = 2 * np.exp(-((x1 - 1.7)**2 + (x2 - 1.7)**2))
+    return term1 + term2
+
+# Função 3 (Ackley) [cite: 31]
+# f(x1,x2) = -20*exp(-0.2*sqrt(0.5*(x1^2+x2^2))) - exp(0.5*(cos(2*pi*x1)+cos(2*pi*x2))) + 20 + e
+# Domínio: x1, x2 em [-8,8]
+# Objetivo: Minimização
+def funcao_objetivo_3(x1, x2):
+    term1 = -20 * np.exp(-0.2 * np.sqrt(0.5 * (x1**2 + x2**2)))
+    term2 = -np.exp(0.5 * (np.cos(2 * np.pi * x1) + np.cos(2 * np.pi * x2)))
+    return term1 + term2 + 20 + np.e
+
+# Função 4 (Rastrigin) [cite: 33]
+# f(x1,x2) = (x1^2 - 10*cos(2*pi*x1) + 10) + (x2^2 - 10*cos(2*pi*x2) + 10)
+# Domínio: x1, x2 em [-5.12, 5.12]
+# Objetivo: Minimização
+def funcao_objetivo_4(x1, x2):
+    term_x1 = x1**2 - 10 * np.cos(2 * np.pi * x1) + 10
+    term_x2 = x2**2 - 10 * np.cos(2 * np.pi * x2) + 10
+    return term_x1 + term_x2
+
+# Função 5 [cite: 33]
+# f(x1,x2) = (x1*cos(x1))/20 + 2*exp(-(x1^2 + (x2-1)^2)) + 0.01*x1*x2
+# Domínio: x1, x2 em [-10,10]
+# Objetivo: Maximização
+def funcao_objetivo_5(x1, x2):
+    term1 = (x1 * np.cos(x1)) / 20.0
+    term2 = 2 * np.exp(-(x1**2 + (x2 - 1)**2))
+    term3 = 0.01 * x1 * x2
+    return term1 + term2 + term3
+
+# Função 6 [cite: 35]
+# f(x1,x2) = x1*sin(4*pi*x1) - x2*sin(4*pi*x2 + pi) + 1
+# Domínio: x1 em [-1,3], x2 em [-1,3]
+# Objetivo: Maximização
+def funcao_objetivo_6(x1, x2):
+    term_x1 = x1 * np.sin(4 * np.pi * x1)
+    term_x2 = x2 * np.sin(4 * np.pi * x2 + np.pi)
+    return term_x1 - term_x2 + 1
+
+# Função 7 [cite: 35]
+# f(x1,x2) = -sin(x1)*(sin(x1^2/pi))^(20) - sin(x2)*(sin(2*x2^2/pi))^(20)
+# (Nota: 2*10 no expoente é 20)
+# Domínio: x1, x2 em [0, pi]
+# Objetivo: Minimização
+def funcao_objetivo_7(x1, x2):
+    # Tratar casos onde sin(.) pode ser negativo antes da potência par,
+    # ou onde o argumento de sin para a base da potência pode ser >1 ou <-1 (não deveria para seno).
+    # Para (sin(algo))^20, se sin(algo) for negativo, o resultado será positivo.
+    # Se |sin(algo)| > 1, isso seria um problema, mas sin está entre -1 e 1.
+    
+    # Evitar math domain error para base negativa em potência fracionária,
+    # mas aqui a potência é inteira (20), então não é um problema.
+    # Contudo, a precisão de ponto flutuante pode ser um fator.
+    
+    val_sin_term1_base = np.sin(x1**2 / np.pi)
+    term1_base_pow_20 = np.pow(val_sin_term1_base, 20) # (sin(x1^2/pi))^20
+    term1 = -np.sin(x1) * term1_base_pow_20
+
+    val_sin_term2_base = np.sin(2 * x2**2 / np.pi)
+    term2_base_pow_20 = np.pow(val_sin_term2_base, 20) # (sin(2*x2^2/pi))^20
+    term2 = -np.sin(x2) * term2_base_pow_20
+    
+    return term1 + term2
+
+# Função 8 [cite: 38]
+# f(x1,x2) = -(x2+47)*sin(sqrt(|x1/2 + (x2+47)|)) - x1*sin(sqrt(|x1 - (x2+47)|))
+# Domínio: x1 em [-200,20], x2 em [-200,20]
+# Objetivo: Minimização
+def funcao_objetivo_8(x1, x2):
+    # Usar math.fabs para o valor absoluto |.|
+    term1_factor = -(x2 + 47)
+    term1_arg_sqrt = np.fabs(x1 / 2.0 + (x2 + 47))
+    term1 = term1_factor * np.sin(np.sqrt(term1_arg_sqrt))
+
+    term2_factor = -x1
+    term2_arg_sqrt = np.fabs(x1 - (x2 + 47))
+    term2 = term2_factor * np.sin(np.sqrt(term2_arg_sqrt))
+    
+    return term1 + term2
 
 # --- Verificador de Limites ---
 def verificar_limites(candidato_x1, candidato_x2, dominio_x1_lim, dominio_x2_lim):
@@ -16,7 +108,7 @@ def verificar_limites(candidato_x1, candidato_x2, dominio_x1_lim, dominio_x2_lim
     return True
 
 # --- Algoritmo: Hill Climbing (Subida de Encosta) ---
-def subida_de_encosta(func_obj, dominio_x1_lim, dominio_x2_lim, epsilon, 
+def hill_climbing(func_obj, dominio_x1_lim, dominio_x2_lim, epsilon, 
                         max_iter, t_parada_antecipada, eh_maximizacao):
     # Ponto inicial: limite inferior do domínio [cite: 22]
     x1_atual = dominio_x1_lim[0]
@@ -82,7 +174,8 @@ def subida_de_encosta(func_obj, dominio_x1_lim, dominio_x2_lim, epsilon,
             
     return x1_melhor_geral, x2_melhor_geral, custo_melhor_geral
 
-def busca_local_aleatoria(func_obj, dominio_x1_lim, dominio_x2_lim, sigma, 
+# --- Algoritmo: Busca Aleatória Local (LRS) ---
+def lrs(func_obj, dominio_x1_lim, dominio_x2_lim, sigma, 
                            max_iter, t_parada_antecipada, eh_maximizacao):
     # Candidato inicial x_best gerado por distribuição uniforme [cite: 25]
     x1_atual = random.uniform(dominio_x1_lim[0], dominio_x1_lim[1])
@@ -131,7 +224,7 @@ def busca_local_aleatoria(func_obj, dominio_x1_lim, dominio_x2_lim, sigma,
     return x1_melhor_geral, x2_melhor_geral, custo_melhor_geral
 
 # --- Algoritmo: Busca Aleatória Global (GRS) ---
-def busca_aleatoria_global(func_obj, dominio_x1_lim, dominio_x2_lim, 
+def grs(func_obj, dominio_x1_lim, dominio_x2_lim, 
                             max_iter, t_parada_antecipada, eh_maximizacao):
     # Gera um candidato inicial aleatório para começar
     x1_melhor = random.uniform(dominio_x1_lim[0], dominio_x1_lim[1])

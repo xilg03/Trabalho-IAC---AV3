@@ -10,11 +10,11 @@ import problemas_continuos as pc
 # Vamos usar o Problema 1 como exemplo
 # f(x1,x2) = x1^2 + x2^2, Domínio: x1, x2 em [-100, 100], Minimização
 PROBLEMA_ESCOLHIDO = {
-    'nome': "Função x1^2 + x2^2",
-    'func_obj': pc.funcao_objetivo_1, # Referencia a função importada
-    'dominio_x1': (-100, 100),
-    'dominio_x2': (-100, 100),
-    'eh_maximizacao': False
+    'nome': "Função Objetivo 2 (Maximização)",
+    'func_obj': pc.funcao_objetivo_2, # Referencia a função importada
+    'dominio_x1': (-2, 4),
+    'dominio_x2': (-2, 5),
+    'eh_maximizacao': True
 }
 
 # --- Parâmetros Globais do Experimento ---
@@ -32,17 +32,17 @@ SIGMA_LRS = 0.1   # Ajuste este valor para o LRS ($0 < \sigma < 1$)
 algoritmos_para_testar = [
     {
         'nome': "Busca Aleatória Global (GRS)",
-        'funcao': pc.busca_aleatoria_global, # Referencia a função importada
+        'funcao': pc.grs, # Referencia a função importada
         'args': {} # GRS não tem hiperparâmetros especiais além dos globais
     },
     {
         'nome': "Hill Climbing (Subida de Encosta)",
-        'funcao': pc.subida_de_encosta, # Referencia a função importada
+        'funcao': pc.hill_climbing, # Referencia a função importada
         'args': {'epsilon': EPSILON_HC}
     },
     {
         'nome': "Local Random Search (LRS)",
-        'funcao': pc.busca_local_aleatoria, # Referencia a função importada
+        'funcao': pc.lrs, # Referencia a função importada
         'args': {'sigma': SIGMA_LRS}
     }
 ]

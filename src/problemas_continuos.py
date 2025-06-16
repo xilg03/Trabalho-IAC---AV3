@@ -1,258 +1,777 @@
-import math
-import random
 import numpy as np
+import matplotlib.pyplot as plt
 
-# --- Funções Objetivo ---
+# Função auxiliar para plotar gráfico 3D de uma função contínua f(x1, x2)
+def plot_function(f, domain, best_point=None, title="Função f(x1, x2)"):
+    x1 = np.linspace(domain[0][0], domain[0][1], 300)
+    x2 = np.linspace(domain[1][0], domain[1][1], 300)
+    X1, X2 = np.meshgrid(x1, x2)
+    Z = f(X1, X2)
 
-# Função 1 [cite: 29]
-# f(x1,x2) = x1^2 + x2^2
-# Domínio: x1, x2 em [-100, 100]
-# Objetivo: Minimização
-def funcao_objetivo_1(x1, x2):
+    fig = plt.figure(figsize=(10, 6))
+    ax = fig.add_subplot(projection='3d')
+    ax.plot_surface(X1, X2, Z, cmap='viridis', alpha=0.5)
+
+    if best_point is not None:
+        x1b, x2b = best_point
+        ax.scatter(x1b, x2b, f(x1b, x2b), color='red', s=80, label='Melhor ponto')
+        ax.legend()
+
+    ax.set_xlabel('x')
+    ax.set_ylabel('y')
+    ax.set_zlabel('z')
+    ax.set_title(title)
+    plt.tight_layout()
+    plt.show()
+
+# Segue fielmente o pseudocódigo do professor Paulo Cirillo, com suporte a MINIMIZAÇÃO ou MAXIMIZAÇÃO.
+
+class HillClimbing:
+    def __init__(self, f, tipo_otimizacao, dominio, epsilon=0.1, max_it=1000, max_vizinhos=30):
+        self.f = f
+        self.tipo = tipo_otimizacao
+        self.dom = np.array(dominio)
+        self.epsilon = epsilon
+        self.max_it = max_it
+        self.max_vizinhos = max_vizinhos
+
+    def run(self, retornar_caminho=False):
+        x_best = np.copy(self.dom[:, 0])
+        f_best = self.f(*x_best)
+        caminho = [np.copy(x_best)]
+
+        for i in range(self.max_it):
+            melhorou = False
+            for _ in range(self.max_vizinhos):
+                x_cand = x_best + np.random.uniform(-self.epsilon, self.epsilon, size=2)
+                x_cand = np.clip(x_cand, self.dom[:, 0], self.dom[:, 1])
+                f_cand = self.f(*x_cand)
+
+                if (self.tipo == "min" and f_cand < f_best) or (self.tipo == "max" and f_cand > f_best):
+                    x_best, f_best = x_cand, f_cand
+                    caminho.append(np.copy(x_best))
+                    melhorou = True
+                    break
+            if not melhorou:
+                break
+
+        return caminho if retornar_caminho else x_best
+    
+# Baseado no pseudocódigo do professor, adaptado para problemas contínuos (f(x1, x2))
+
+class LocalRandomSearch:
+    def __init__(self, f, tipo_otimizacao, dominio, sigma=0.1, max_it=1000):
+        self.f = f
+        self.tipo = tipo_otimizacao
+        self.dom = np.array(dominio)
+        self.sigma = sigma
+        self.max_it = max_it
+
+    def run(self, retornar_caminho=False):
+        x_best = np.random.uniform(self.dom[:, 0], self.dom[:, 1])
+        f_best = self.f(*x_best)
+        caminho = [np.copy(x_best)]
+
+        for i in range(self.max_it):
+            ruido = np.random.normal(0, self.sigma, size=2)
+            x_cand = x_best + ruido
+            x_cand = np.clip(x_cand, self.dom[:, 0], self.dom[:, 1])
+            f_cand = self.f(*x_cand)
+
+            if (self.tipo == "min" and f_cand < f_best) or (self.tipo == "max" and f_cand > f_best):
+                x_best, f_best = x_cand, f_cand
+                caminho.append(np.copy(x_best))
+
+        return caminho if retornar_caminho else x_best
+
+# Baseado no pseudocódigo do professor, utilizando amostragem totalmente aleatória no domínio
+
+class GlobalRandomSearch:
+    def __init__(self, f, tipo_otimizacao, dominio, max_it=1000):
+        self.f = f
+        self.tipo = tipo_otimizacao
+        self.dom = np.array(dominio)
+        self.max_it = max_it
+
+    def run(self, retornar_caminho=False):
+        x_best = np.random.uniform(self.dom[:, 0], self.dom[:, 1])
+        f_best = self.f(*x_best)
+        caminho = [np.copy(x_best)]
+
+        for i in range(self.max_it):
+            x_cand = np.random.uniform(self.dom[:, 0], self.dom[:, 1])
+            f_cand = self.f(*x_cand)
+
+            if (self.tipo == "min" and f_cand < f_best) or (self.tipo == "max" and f_cand > f_best):
+                x_best, f_best = x_cand, f_cand
+                caminho.append(np.copy(x_best))
+
+        return caminho if retornar_caminho else x_best
+
+# Cada função retorna o valor da função objetivo para x1, x2
+# Também definimos uma lista com os domínios e se é um problema de minimização ou maximização
+
+def f1(x1, x2):
     return x1**2 + x2**2
 
-# Função 2 [cite: 31]
-# f(x1,x2) = exp(-(x1^2+x2^2)) + 2*exp(-((x1-1.7)^2+(x2-1.7)^2))
-# Domínio: x1 em [-2,4], x2 em [-2,5]
-# Objetivo: Maximização
-def funcao_objetivo_2(x1, x2):
-    term1 = np.exp(-(x1**2 + x2**2))
-    term2 = 2 * np.exp(-((x1 - 1.7)**2 + (x2 - 1.7)**2))
-    return term1 + term2
+def f2(x1, x2):
+    return np.exp(-(x1**2 + x2**2)) + 2 * np.exp(-((x1 - 1.7)**2 + (x2 - 1.7)**2))
 
-# Função 3 (Ackley) [cite: 31]
-# f(x1,x2) = -20*exp(-0.2*sqrt(0.5*(x1^2+x2^2))) - exp(0.5*(cos(2*pi*x1)+cos(2*pi*x2))) + 20 + e
-# Domínio: x1, x2 em [-8,8]
-# Objetivo: Minimização
-def funcao_objetivo_3(x1, x2):
-    term1 = -20 * np.exp(-0.2 * np.sqrt(0.5 * (x1**2 + x2**2)))
-    term2 = -np.exp(0.5 * (np.cos(2 * np.pi * x1) + np.cos(2 * np.pi * x2)))
-    return term1 + term2 + 20 + np.e
+def f3(x1, x2):
+    return -20 * np.exp(-0.2 * np.sqrt(0.5 * (x1**2 + x2**2))) - \
+           np.exp(0.5 * (np.cos(2 * np.pi * x1) + np.cos(2 * np.pi * x2))) + 20 + np.exp(1)
 
-# Função 4 (Rastrigin) [cite: 33]
-# f(x1,x2) = (x1^2 - 10*cos(2*pi*x1) + 10) + (x2^2 - 10*cos(2*pi*x2) + 10)
-# Domínio: x1, x2 em [-5.12, 5.12]
-# Objetivo: Minimização
-def funcao_objetivo_4(x1, x2):
-    term_x1 = x1**2 - 10 * np.cos(2 * np.pi * x1) + 10
-    term_x2 = x2**2 - 10 * np.cos(2 * np.pi * x2) + 10
-    return term_x1 + term_x2
+def f4(x1, x2):
+    return (x1**2 - 10 * np.cos(2 * np.pi * x1) + 10) + \
+           (x2**2 - 10 * np.cos(2 * np.pi * x2) + 10)
 
-# Função 5 [cite: 33]
-# f(x1,x2) = (x1*cos(x1))/20 + 2*exp(-(x1^2 + (x2-1)^2)) + 0.01*x1*x2
-# Domínio: x1, x2 em [-10,10]
-# Objetivo: Maximização
-def funcao_objetivo_5(x1, x2):
-    term1 = (x1 * np.cos(x1)) / 20.0
-    term2 = 2 * np.exp(-(x1**2 + (x2 - 1)**2))
-    term3 = 0.01 * x1 * x2
-    return term1 + term2 + term3
+def f5(x1, x2):
+    return (x1 * np.cos(x1)) / 20 + 2 * np.exp(-(x1**2) - (x2 - 1)**2) + 0.01 * x1 * x2
 
-# Função 6 [cite: 35]
-# f(x1,x2) = x1*sin(4*pi*x1) - x2*sin(4*pi*x2 + pi) + 1
-# Domínio: x1 em [-1,3], x2 em [-1,3]
-# Objetivo: Maximização
-def funcao_objetivo_6(x1, x2):
-    term_x1 = x1 * np.sin(4 * np.pi * x1)
-    term_x2 = x2 * np.sin(4 * np.pi * x2 + np.pi)
-    return term_x1 - term_x2 + 1
+def f6(x1, x2):
+    return x1 * np.sin(4 * np.pi * x1) - x2 * np.sin(4 * np.pi * x2 + np.pi) + 1
 
-# Função 7 [cite: 35]
-# f(x1,x2) = -sin(x1)*(sin(x1^2/pi))^(20) - sin(x2)*(sin(2*x2^2/pi))^(20)
-# (Nota: 2*10 no expoente é 20)
-# Domínio: x1, x2 em [0, pi]
-# Objetivo: Minimização
-def funcao_objetivo_7(x1, x2):
-    # Tratar casos onde sin(.) pode ser negativo antes da potência par,
-    # ou onde o argumento de sin para a base da potência pode ser >1 ou <-1 (não deveria para seno).
-    # Para (sin(algo))^20, se sin(algo) for negativo, o resultado será positivo.
-    # Se |sin(algo)| > 1, isso seria um problema, mas sin está entre -1 e 1.
-    
-    # Evitar math domain error para base negativa em potência fracionária,
-    # mas aqui a potência é inteira (20), então não é um problema.
-    # Contudo, a precisão de ponto flutuante pode ser um fator.
-    
-    val_sin_term1_base = np.sin(x1**2 / np.pi)
-    term1_base_pow_20 = np.pow(val_sin_term1_base, 20) # (sin(x1^2/pi))^20
-    term1 = -np.sin(x1) * term1_base_pow_20
+def f7(x1, x2):
+    return -np.sin(x1) * np.sin(x1**2 / np.pi)**20 - np.sin(x2) * np.sin(2 * x2**2 / np.pi)**20
 
-    val_sin_term2_base = np.sin(2 * x2**2 / np.pi)
-    term2_base_pow_20 = np.pow(val_sin_term2_base, 20) # (sin(2*x2^2/pi))^20
-    term2 = -np.sin(x2) * term2_base_pow_20
-    
-    return term1 + term2
+def f8(x1, x2):
+    return - (x2 + 47) * np.sin(np.sqrt(abs(x1/2 + x2 + 47))) - x1 * np.sin(np.sqrt(abs(x1 - x2 - 47)))
 
-# Função 8 [cite: 38]
-# f(x1,x2) = -(x2+47)*sin(sqrt(|x1/2 + (x2+47)|)) - x1*sin(sqrt(|x1 - (x2+47)|))
-# Domínio: x1 em [-200,20], x2 em [-200,20]
-# Objetivo: Minimização
-def funcao_objetivo_8(x1, x2):
-    # Usar math.fabs para o valor absoluto |.|
-    term1_factor = -(x2 + 47)
-    term1_arg_sqrt = np.fabs(x1 / 2.0 + (x2 + 47))
-    term1 = term1_factor * np.sin(np.sqrt(term1_arg_sqrt))
+# Lista com funções, domínios e tipo de otimização
+funcoes_info = [
+    (f1, [(-100, 100), (-100, 100)], 'min'),
+    (f2, [(-2, 4), (-2, 5)], 'max'),
+    (f3, [(-8, 8), (-8, 8)], 'min'),
+    (f4, [(-5.12, 5.12), (-5.12, 5.12)], 'min'),
+    (f5, [(-10, 10), (-10, 10)], 'max'),
+    (f6, [(-1, 3), (-1, 3)], 'max'),
+    (f7, [(0, np.pi), (0, np.pi)], 'min'),
+    (f8, [(-200, 20), (-200, 20)], 'min')
+]
 
-    term2_factor = -x1
-    term2_arg_sqrt = np.fabs(x1 - (x2 + 47))
-    term2 = term2_factor * np.sin(np.sqrt(term2_arg_sqrt))
-    
-    return term1 + term2
+import pandas as pd
+from collections import Counter
 
-# --- Verificador de Limites ---
-def verificar_limites(candidato_x1, candidato_x2, dominio_x1_lim, dominio_x2_lim):
-    """Verifica se um candidato está dentro dos limites do domínio."""
-    if not (dominio_x1_lim[0] <= candidato_x1 <= dominio_x1_lim[1]):
-        return False
-    if not (dominio_x2_lim[0] <= candidato_x2 <= dominio_x2_lim[1]):
-        return False
-    return True
+# NOVA CÉLULA 6 - Consolidada: Execuções, parâmetros, moda, melhores soluções, caminhos e gráficos
 
-# --- Algoritmo: Hill Climbing (Subida de Encosta) ---
-def hill_climbing(func_obj, dominio_x1_lim, dominio_x2_lim, epsilon, 
-                        max_iter, t_parada_antecipada, eh_maximizacao):
-    # Ponto inicial: limite inferior do domínio [cite: 22]
-    x1_atual = dominio_x1_lim[0]
-    x2_atual = dominio_x2_lim[0]
-    
-    if not verificar_limites(x1_atual, x2_atual, dominio_x1_lim, dominio_x2_lim):
-        x1_atual = random.uniform(dominio_x1_lim[0], dominio_x1_lim[1])
-        x2_atual = random.uniform(dominio_x2_lim[0], dominio_x2_lim[1])
-        
-    custo_atual = func_obj(x1_atual, x2_atual)
+# 1. Configurações e hiperparâmetros
+f_obj, dominio, tipo = funcoes_info[0]
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.5
+max_vizinhos = 100
 
-    x1_melhor_geral, x2_melhor_geral, custo_melhor_geral = x1_atual, x2_atual, custo_atual
-    iter_sem_melhora_global = 0
-    
-    for i in range(max_iter):
-        N_VIZINHOS_POR_ITERACAO = 10 
-        x1_candidato_iter, x2_candidato_iter, custo_candidato_iter = x1_atual, x2_atual, custo_atual
-        achou_melhor_nesta_iteracao = False
+# 2. Execuções com coleta de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
 
-        for _ in range(N_VIZINHOS_POR_ITERACAO):
-            # Gera perturbação. O critério é |x_best - y| <= epsilon [cite: 23]
-            # Esta geração tenta passos aleatórios limitados por epsilon.
-            pert_x1 = random.uniform(-epsilon, epsilon) 
-            pert_x2 = random.uniform(-epsilon, epsilon)
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
 
-            viz_x1 = x1_atual + pert_x1
-            viz_x2 = x2_atual + pert_x2
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
 
-            if not verificar_limites(viz_x1, viz_x2, dominio_x1_lim, dominio_x2_lim):
-                continue
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
 
-            custo_vizinho = func_obj(viz_x1, viz_x2)
+# 3. Cálculo da melhor solução
+def melhor_solucao(f, tipo, lista_solucoes):
+    return min(lista_solucoes, key=lambda x: f(*x)) if tipo == 'min' else max(lista_solucoes, key=lambda x: f(*x))
 
-            if eh_maximizacao:
-                if custo_vizinho > custo_candidato_iter:
-                    x1_candidato_iter, x2_candidato_iter, custo_candidato_iter = viz_x1, viz_x2, custo_vizinho
-                    achou_melhor_nesta_iteracao = True
-            else: 
-                if custo_vizinho < custo_candidato_iter:
-                    x1_candidato_iter, x2_candidato_iter, custo_candidato_iter = viz_x1, viz_x2, custo_vizinho
-                    achou_melhor_nesta_iteracao = True
-        
-        if achou_melhor_nesta_iteracao:
-            x1_atual, x2_atual, custo_atual = x1_candidato_iter, x2_candidato_iter, custo_candidato_iter
-            
-            if eh_maximizacao:
-                if custo_atual > custo_melhor_geral:
-                    x1_melhor_geral, x2_melhor_geral, custo_melhor_geral = x1_atual, x2_atual, custo_atual
-                    iter_sem_melhora_global = 0
-                else:
-                    iter_sem_melhora_global +=1 
-            else: 
-                if custo_atual < custo_melhor_geral:
-                    x1_melhor_geral, x2_melhor_geral, custo_melhor_geral = x1_atual, x2_atual, custo_atual
-                    iter_sem_melhora_global = 0
-                else:
-                    iter_sem_melhora_global +=1
-        else:
-            iter_sem_melhora_global += N_VIZINHOS_POR_ITERACAO 
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
 
-        if iter_sem_melhora_global >= t_parada_antecipada:
-            break
-            
-    return x1_melhor_geral, x2_melhor_geral, custo_melhor_geral
+# 4. Cálculo da moda
+def calcular_moda(solucoes, casas_decimais=3):
+    arredondados = [tuple(np.round(sol, casas_decimais)) for sol in solucoes]
+    contagem = Counter(arredondados)
+    moda, freq = contagem.most_common(1)[0]
+    return np.array(moda), freq
 
-# --- Algoritmo: Busca Aleatória Local (LRS) ---
-def lrs(func_obj, dominio_x1_lim, dominio_x2_lim, sigma, 
-                           max_iter, t_parada_antecipada, eh_maximizacao):
-    # Candidato inicial x_best gerado por distribuição uniforme [cite: 25]
-    x1_atual = random.uniform(dominio_x1_lim[0], dominio_x1_lim[1])
-    x2_atual = random.uniform(dominio_x2_lim[0], dominio_x2_lim[1])
-    custo_atual = func_obj(x1_atual, x2_atual)
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
 
-    x1_melhor_geral, x2_melhor_geral, custo_melhor_geral = x1_atual, x2_atual, custo_atual
-    iter_sem_melhora_global = 0
+# 5. Tabela de resultados
+tabela_moda_f1 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
 
-    for i in range(max_iter):
-        # Gera candidato 'y' a partir de 'x_atual' com desvio padrão sigma [cite: 25]
-        pert_x1 = random.gauss(0, sigma)
-        pert_x2 = random.gauss(0, sigma)
+# 6. Impressão de resultados
+print("🔁 Total de soluções por algoritmo:")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
 
-        cand_x1 = x1_atual + pert_x1
-        cand_x2 = x2_atual + pert_x2
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
 
-        cand_x1 = max(dominio_x1_lim[0], min(cand_x1, dominio_x1_lim[1]))
-        cand_x2 = max(dominio_x2_lim[0], min(cand_x2, dominio_x2_lim[1]))
-        
-        custo_candidato = func_obj(cand_x1, cand_x2)
-        
-        if eh_maximizacao:
-            if custo_candidato > custo_atual:
-                x1_atual, x2_atual, custo_atual = cand_x1, cand_x2, custo_candidato
-        else: 
-            if custo_candidato < custo_atual:
-                x1_atual, x2_atual, custo_atual = cand_x1, cand_x2, custo_candidato
-        
-        if eh_maximizacao:
-            if custo_atual > custo_melhor_geral:
-                x1_melhor_geral, x2_melhor_geral, custo_melhor_geral = x1_atual, x2_atual, custo_atual
-                iter_sem_melhora_global = 0
-            else:
-                iter_sem_melhora_global += 1
-        else: 
-            if custo_atual < custo_melhor_geral:
-                x1_melhor_geral, x2_melhor_geral, custo_melhor_geral = x1_atual, x2_atual, custo_atual
-                iter_sem_melhora_global = 0
-            else:
-                iter_sem_melhora_global += 1
-        
-        if iter_sem_melhora_global >= t_parada_antecipada:
-            break
-            
-    return x1_melhor_geral, x2_melhor_geral, custo_melhor_geral
+print("\n📊 Moda das Soluções (F1):")
+print(tabela_moda_f1.to_string(index=False))
 
-# --- Algoritmo: Busca Aleatória Global (GRS) ---
-def grs(func_obj, dominio_x1_lim, dominio_x2_lim, 
-                            max_iter, t_parada_antecipada, eh_maximizacao):
-    # Gera um candidato inicial aleatório para começar
-    x1_melhor = random.uniform(dominio_x1_lim[0], dominio_x1_lim[1])
-    x2_melhor = random.uniform(dominio_x2_lim[0], dominio_x2_lim[1])
-    custo_melhor = func_obj(x1_melhor, x2_melhor)
-    iter_sem_melhora = 0
+# 7. Função gráfica final
+def plot_multiplos_caminhos(f, dominio, lista_caminhos, titulo, tipo="linha", melhor_ponto=None):
+    X = np.linspace(dominio[0][0], dominio[0][1], 300)
+    Y = np.linspace(dominio[1][0], dominio[1][1], 300)
+    X, Y = np.meshgrid(X, Y)
+    Z = f(X, Y)
 
-    for i in range(max_iter):
-        # Gera novo candidato através de um número aleatório com distribuição uniforme [cite: 26]
-        cand_x1 = random.uniform(dominio_x1_lim[0], dominio_x1_lim[1])
-        cand_x2 = random.uniform(dominio_x2_lim[0], dominio_x2_lim[1])
-        
-        custo_candidato = func_obj(cand_x1, cand_x2)
+    fig = plt.figure(figsize=(12, 6))
+    ax = fig.add_subplot(projection="3d")
+    ax.plot_surface(X, Y, Z, cmap="viridis", alpha=0.3, edgecolor="none")
 
-        if eh_maximizacao:
-            if custo_candidato > custo_melhor:
-                x1_melhor, x2_melhor, custo_melhor = cand_x1, cand_x2, custo_candidato
-                iter_sem_melhora = 0
-            else:
-                iter_sem_melhora += 1
-        else: 
-            if custo_candidato < custo_melhor:
-                x1_melhor, x2_melhor, custo_melhor = cand_x1, cand_x2, custo_candidato
-                iter_sem_melhora = 0
-            else:
-                iter_sem_melhora += 1
-        
-        if iter_sem_melhora >= t_parada_antecipada:
-            break
-            
-    return x1_melhor, x2_melhor, custo_melhor
+    for caminho in lista_caminhos:
+        caminho = np.array(caminho)
+        Z_caminho = np.array([f(*p) for p in caminho])
+        if tipo == "linha":
+            ax.plot(caminho[:, 0], caminho[:, 1], Z_caminho, alpha=0.3, linewidth=2)
+            ax.scatter(caminho[-1, 0], caminho[-1, 1], Z_caminho[-1], color='red', marker='x', s=20)
+        elif tipo == "pontos":
+            ax.scatter(caminho[:, 0], caminho[:, 1], Z_caminho, alpha=0.3, s=20, c='red', marker='x')
+
+    # Adiciona o X verde do melhor ponto
+    if melhor_ponto is not None:
+        ax.scatter(melhor_ponto[0], melhor_ponto[1], f(*melhor_ponto), c='green', marker='X', s=300, label='Melhor Solução')
+        ax.legend()
+
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    plt.title(titulo)
+    plt.show()
+
+# Replotando para F1 com o ponto verde incluso (sem mudar nenhum outro comportamento)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (100 execuções)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (100 execuções)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (X)", tipo="pontos", melhor_ponto=melhor_grs)
+
+
+# Selecionando a função F2
+f_obj, dominio, tipo = funcoes_info[1]
+
+# Hiperparâmetros fixos
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.5
+max_vizinhos = 100
+
+# Execução dos algoritmos com registro de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
+
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
+
+# Melhor solução
+def melhor_solucao(f, tipo, lista_solucoes):
+    return min(lista_solucoes, key=lambda x: f(*x)) if tipo == 'min' else max(lista_solucoes, key=lambda x: f(*x))
+
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
+
+# Moda
+def calcular_moda(solucoes, casas_decimais=3):
+    arredondados = [tuple(np.round(sol, casas_decimais)) for sol in solucoes]
+    contagem = Counter(arredondados)
+    moda, freq = contagem.most_common(1)[0]
+    return np.array(moda), freq
+
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
+
+# Tabela
+tabela_moda_f2 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
+
+# Impressão dos resultados
+print("🔁 Total de soluções por algoritmo:")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
+
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
+
+print("\n📊 Moda das Soluções (F2):")
+print(tabela_moda_f2.to_string(index=False))
+
+# Plotando os rastros
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (F2)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (F2)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (F2)", tipo="pontos", melhor_ponto=melhor_grs)
+
+# Selecionando a função F3
+f_obj, dominio, tipo = funcoes_info[2]
+
+# Hiperparâmetros fixos
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.5
+max_vizinhos = 100
+
+# Execução dos algoritmos com registro de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
+
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
+
+# Melhor solução
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
+
+# Moda
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
+
+# Tabela
+tabela_moda_f3 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
+
+# Impressão dos resultados
+print("🔁 Total de soluções por algoritmo:")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
+
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
+
+print("\n📊 Moda das Soluções (F3):")
+print(tabela_moda_f3.to_string(index=False))
+
+# Plotando os rastros
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (F3)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (F3)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (F3)", tipo="pontos", melhor_ponto=melhor_grs)
+
+# Selecionando a função F4
+f_obj, dominio, tipo = funcoes_info[3]
+
+# Hiperparâmetros
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.5
+max_vizinhos = 100
+
+# Execução dos algoritmos com coleta de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
+
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
+
+# Melhor solução
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
+
+# Moda
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
+
+# Tabela de resultados
+tabela_moda_f4 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
+
+# Impressão dos resultados
+print("🔁 Total de soluções por algoritmo (F4):")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
+
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
+
+print("\n📊 Moda das Soluções (F4):")
+print(tabela_moda_f4.to_string(index=False))
+
+# Gráficos com destaque no melhor ponto
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (F4)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (F4)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (F4)", tipo="pontos", melhor_ponto=melhor_grs)
+
+# Selecionando a função F5
+f_obj, dominio, tipo = funcoes_info[4]
+
+# Hiperparâmetros
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.5
+max_vizinhos = 100
+
+# Execução dos algoritmos com coleta de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
+
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
+
+# Melhor solução
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
+
+# Moda
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
+
+# Tabela de resultados
+tabela_moda_f5 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
+
+# Impressão dos resultados
+print("🔁 Total de soluções por algoritmo (F5):")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
+
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
+
+print("\n📊 Moda das Soluções (F5):")
+print(tabela_moda_f5.to_string(index=False))
+
+# Gráficos com destaque no melhor ponto
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (F5)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (F5)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (F5)", tipo="pontos", melhor_ponto=melhor_grs)
+
+# CÉLULA DE EXECUÇÃO DA FUNÇÃO F6
+
+# Selecionando a função F6
+f_obj, dominio, tipo = funcoes_info[5]
+
+# Hiperparâmetros
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.1
+max_vizinhos = 100
+
+# Execução dos algoritmos com coleta de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
+
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
+
+# Melhor solução
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
+
+# Moda
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
+
+# Tabela de resultados
+tabela_moda_f6 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
+
+# Impressão dos resultados
+print("🔁 Total de soluções por algoritmo (F6):")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
+
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
+
+print("\n📊 Moda das Soluções (F6):")
+print(tabela_moda_f6.to_string(index=False))
+
+# Gráficos com destaque no melhor ponto
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (F6)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (F6)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (F6)", tipo="pontos", melhor_ponto=melhor_grs)
+
+# CÉLULA DE EXECUÇÃO DA FUNÇÃO F7
+
+# Selecionando a função F7
+f_obj, dominio, tipo = funcoes_info[6]
+
+# Hiperparâmetros
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.5
+max_vizinhos = 100
+
+# Execução dos algoritmos com coleta de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
+
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
+
+# Melhor solução
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
+
+# Moda
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
+
+# Tabela de resultados
+tabela_moda_f7 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
+
+# Impressão dos resultados
+print("🔁 Total de soluções por algoritmo (F7):")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
+
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
+
+print("\n📊 Moda das Soluções (F7):")
+print(tabela_moda_f7.to_string(index=False))
+
+# Gráficos com destaque no melhor ponto
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (F7)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (F7)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (F7)", tipo="pontos", melhor_ponto=melhor_grs)
+
+# CÉLULA DE EXECUÇÃO DA FUNÇÃO F8
+
+# Selecionando a função F8
+f_obj, dominio, tipo = funcoes_info[7]
+
+# Hiperparâmetros
+num_rodadas = 100
+max_it = 1000
+epsilon = 0.1
+sigma = 0.5
+max_vizinhos = 100
+
+# Execução dos algoritmos com coleta de caminhos
+caminhos_hc, caminhos_lrs, caminhos_grs = [], [], []
+sol_hc, sol_lrs, sol_grs = [], [], []
+
+for _ in range(num_rodadas):
+    hc = HillClimbing(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                      epsilon=epsilon, max_it=max_it, max_vizinhos=max_vizinhos)
+    caminho = hc.run(retornar_caminho=True)
+    caminhos_hc.append(caminho)
+    sol_hc.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    lrs = LocalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                            sigma=sigma, max_it=max_it)
+    caminho = lrs.run(retornar_caminho=True)
+    caminhos_lrs.append(caminho)
+    sol_lrs.append(caminho[-1])
+
+for _ in range(num_rodadas):
+    grs = GlobalRandomSearch(f=f_obj, tipo_otimizacao=tipo, dominio=dominio,
+                             max_it=max_it)
+    caminho = grs.run(retornar_caminho=True)
+    caminhos_grs.append(caminho)
+    sol_grs.append(caminho[-1])
+
+# Melhor solução
+melhor_hc = melhor_solucao(f_obj, tipo, sol_hc)
+melhor_lrs = melhor_solucao(f_obj, tipo, sol_lrs)
+melhor_grs = melhor_solucao(f_obj, tipo, sol_grs)
+
+# Moda
+moda_hc, freq_hc = calcular_moda(sol_hc)
+moda_lrs, freq_lrs = calcular_moda(sol_lrs)
+moda_grs, freq_grs = calcular_moda(sol_grs)
+
+# Tabela de resultados
+tabela_moda_f8 = pd.DataFrame({
+    "Algoritmo": ["Hill Climbing", "LRS", "GRS"],
+    "Moda (x1, x2)": [moda_hc, moda_lrs, moda_grs],
+    "f(moda)": [f_obj(*moda_hc), f_obj(*moda_lrs), f_obj(*moda_grs)],
+    "Frequência (3 casas)": [f"{freq_hc}/100", f"{freq_lrs}/100", f"{freq_grs}/100"]
+})
+
+# Impressão dos resultados
+print("🔁 Total de soluções por algoritmo (F8):")
+print("HC :", len(sol_hc))
+print("LRS:", len(sol_lrs))
+print("GRS:", len(sol_grs))
+
+print("\n⭐ Melhor solução Hill Climbing:", melhor_hc, "f =", f_obj(*melhor_hc))
+print("⭐ Melhor solução LRS:", melhor_lrs, "f =", f_obj(*melhor_lrs))
+print("⭐ Melhor solução GRS:", melhor_grs, "f =", f_obj(*melhor_grs))
+
+print("\n📊 Moda das Soluções (F8):")
+print(tabela_moda_f8.to_string(index=False))
+
+# Gráficos com destaque no melhor ponto
+plot_multiplos_caminhos(f_obj, dominio, caminhos_hc, "Hill Climbing - Caminhos (F8)", tipo="linha", melhor_ponto=melhor_hc)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_lrs, "Local Random Search - Caminhos (F8)", tipo="linha", melhor_ponto=melhor_lrs)
+plot_multiplos_caminhos(f_obj, dominio, caminhos_grs, "Global Random Search - Pontos Visitados (F8)", tipo="pontos", melhor_ponto=melhor_grs)

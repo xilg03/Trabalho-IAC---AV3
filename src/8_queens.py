@@ -1,145 +1,140 @@
-import math
 import random
+import math
+import matplotlib.pyplot as plt
+import numpy as np
+import time
+import matplotlib.patheffects as path_effects # Import path_effects
 
-# --- Problema das 8 Rainhas ---
-# Representação: um vetor de 8 posições, onde o índice é a coluna (0-7)
-# e o valor é a linha (0-7) onde a rainha está. [cite: 49, 50]
-
-def calcular_h_custo(tabuleiro):
-    """
-    Calcula h(x), o número de pares de rainhas se atacando.
-    O tabuleiro é um vetor onde tabuleiro[coluna] = linha.
-    """
-    n = len(tabuleiro)
-    ataques = 0
+def calcular_conflitos(x):
+    conflitos = 0
+    n = len(x)
     for i in range(n):
         for j in range(i + 1, n):
-            # Checar ataque na mesma linha
-            if tabuleiro[i] == tabuleiro[j]:
-                ataques += 1
-            # Checar ataque na diagonal
-            # |linha1 - linha2| == |coluna1 - coluna2|
-            if abs(tabuleiro[i] - tabuleiro[j]) == abs(i - j):
-                ataques += 1
-    return ataques
+            if x[i] == x[j] or abs(x[i] - x[j]) == abs(i - j):
+                conflitos += 1
+    return conflitos
 
-def funcao_objetivo_8rainhas(tabuleiro):
-    """
-    Função objetivo f(x) = 28 - h(x)[cite: 55].
-    Queremos maximizar f(x), o que significa minimizar h(x).
-    Um valor de 28 significa 0 ataques.
-    """
-    h = calcular_h_custo(tabuleiro)
-    return 28 - h
+def funcao_objetivo(x):
+    return 28 - calcular_conflitos(x)
 
-def gerar_vizinho_8rainhas(tabuleiro_atual):
-    """
-    Gera um vizinho trocando as posições de duas rainhas em colunas aleatórias.
-    Esta é uma forma de perturbação que explora uma porção controlada do espaço de estados[cite: 60].
-    """
-    n = len(tabuleiro_atual)
-    vizinho = list(tabuleiro_atual) # Cria uma cópia
-    
-    # Escolhe duas colunas distintas aleatoriamente
-    col1, col2 = random.sample(range(n), 2)
-    
-    # Troca as linhas das rainhas nessas colunas
-    vizinho[col1], vizinho[col2] = vizinho[col2], vizinho[col1]
-    return vizinho
+T0 = 100  # Temperatura inicial definida no trabalho
+def decaimento_temperatura(T, alpha=0.95):
+    return T * alpha
 
-def tempera_simulada_8rainhas(temp_inicial, taxa_resfriamento, max_iter_sem_melhora_global, max_iter_total):
-    """
-    Implementação da Têmpera Simulada para o problema das 8 Rainhas.
-    """
-    n_rainhas = 8
-    # Gera um estado inicial aleatório (uma rainha por coluna, em linha aleatória)
-    estado_atual = random.sample(range(n_rainhas), n_rainhas)
-    custo_atual = funcao_objetivo_8rainhas(estado_atual)
+def perturbar_estado(x):
+    novo = x.copy()
+    i, j = random.sample(range(8), 2)
+    novo[i], novo[j] = novo[j], novo[i]
+    return novo
 
-    melhor_estado = list(estado_atual)
-    melhor_custo = custo_atual
-    
-    temp_corrente = temp_inicial
-    iter_sem_melhora_global = 0
-    
-    # Armazenar soluções encontradas para a tarefa de encontrar as 92
-    solucoes_encontradas = set() # Usar tuplas para poder adicionar a um set
+def plotar_tabuleiro_8rainhas(solucao):
+    fig, ax = plt.subplots(figsize=(6, 6))
 
-    for i in range(max_iter_total):
-        vizinho = gerar_vizinho_8rainhas(estado_atual)
-        custo_vizinho = funcao_objetivo_8rainhas(vizinho)
+    # Cores madeira
+    marrom = "#8B4513"
+    bege = "#F5DEB3"
 
-        delta_energia = custo_vizinho - custo_atual # Maximização
+    # Criar matriz do tabuleiro
+    tabuleiro = np.add.outer(range(8), range(8)) % 2
 
-        if delta_energia > 0: # Vizinho é melhor, aceita
-            estado_atual = vizinho
-            custo_atual = custo_vizinho
-        else:
-            # Aceita com probabilidade e^(delta_E / T)
-            if random.random() < math.exp(delta_energia / temp_corrente):
-                estado_atual = vizinho
-                custo_atual = custo_vizinho
-        
-        if custo_atual > melhor_custo:
-            melhor_estado = list(estado_atual)
-            melhor_custo = custo_atual
-            iter_sem_melhora_global = 0
-        else:
-            iter_sem_melhora_global +=1
+    for i in range(8):
+        for j in range(8):
+            cor = marrom if tabuleiro[i, j] == 0 else bege
+            ax.add_patch(plt.Rectangle((j, 7 - i), 1, 1, color=cor))
 
-        # Adiciona à lista de soluções se for uma solução ótima (custo 28)
-        if melhor_custo == 28:
-            solucao_tupla = tuple(melhor_estado) # Converte para tupla para ser hashable
-            if solucao_tupla not in solucoes_encontradas:
-                #print(f"Solução encontrada: {melhor_estado}, Custo: {melhor_custo}, Temp: {temp_corrente:.2f}, Iter: {i+1}")
-                solucoes_encontradas.add(solucao_tupla)
-            # Critério de parada: encontrou uma solução e o objetivo é apenas uma [cite: 61]
-            # Se o objetivo for encontrar as 92, continue procurando ou reinicie.
-            # Para a tarefa de encontrar todas as 92, você não pararia aqui necessariamente.
-            # A parada pode ser "atingir o máximo de iterações OU quando a função objetivo atingir seu valor ótimo" [cite: 61]
-            # Se o objetivo é encontrar *uma* solução, pode parar:
-            # return melhor_estado, melhor_custo, solucoes_encontradas
+    # Rainha branca com contorno preto (efeito visual forte)
+    for col, linha in enumerate(solucao):
+        texto = ax.text(
+            col + 0.5, 7 - (linha - 1) + 0.5,
+            '♕',
+            ha='center',
+            va='center',
+            fontsize=36,
+            color='#000000',  # branco forte
+            weight='bold'
+        )
+        texto.set_path_effects([
+            path_effects.Stroke(linewidth=1.5, foreground='white'),
+            path_effects.Normal()
+        ])
 
-        if iter_sem_melhora_global >= max_iter_sem_melhora_global and melhor_custo < 28 : # Evita parar se já achou uma solução e quer mais
-             #print(f"Parada por iterações sem melhora global com T={temp_corrente:.2f} na iter {i+1}")
-             #break # Poderia reiniciar (re-aquecer) ou parar
-             pass
+    ax.set_xlim(0, 8)
+    ax.set_ylim(0, 8)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect('equal')
+    ax.set_title("Tabuleiro das 8 Rainhas", fontsize=16)
+    plt.tight_layout()
+    plt.show()
 
+def simulated_annealing(T0=1000, max_iter=10000, alpha=0.95):
+    x = random.sample(range(1, 9), 8)  # Solução inicial sem rainhas na mesma linha
+    f_best = funcao_objetivo(x)
+    x_best = x.copy()
+    T = T0
+    historico_T = []
 
-        temp_corrente *= taxa_resfriamento # Decaimento da temperatura [cite: 59]
-        if temp_corrente < 0.001 and melhor_custo < 28 : # Limite inferior para temperatura
-            #print(f"Temperatura muito baixa e solução não encontrada. Parando. Iter: {i+1}")
-            break # Ou re-aquecer
+    for _ in range(max_iter):
+        historico_T.append(T)
+        x_new = perturbar_estado(x)
+        f_new = funcao_objetivo(x_new)
+        delta = f_new - funcao_objetivo(x)
 
-        # Critério de parada se o objetivo é encontrar todas as 92 soluções [cite: 62]
-        if len(solucoes_encontradas) >= 92:
-             print(f"Todas as 92 soluções encontradas! Iter: {i+1}")
-             break
-             
-    #print(f"Finalizado. Melhor estado: {melhor_estado}, Melhor custo: {melhor_custo}")
-    #print(f"Total de soluções distintas encontradas: {len(solucoes_encontradas)}")
-    return melhor_estado, melhor_custo, solucoes_encontradas
+        if delta > 0 or random.random() < math.exp(delta / T):
+            x = x_new
 
+        if funcao_objetivo(x) > f_best:
+            f_best = funcao_objetivo(x)
+            x_best = x.copy()
 
-# Exemplo de execução para 8 Rainhas
-# temp_inicial_8q = 1000
-# taxa_resfriamento_8q = 0.995 # Escolha uma maneira de decaimento [cite: 59]
-# max_iter_sem_melhora_8q = 500
-# max_iter_total_8q = 200000 # Ajustar para encontrar mais soluções
+        T = decaimento_temperatura(T, alpha)
 
-# print("\nExecutando Têmpera Simulada para 8 Rainhas...")
-# _, _, solucoes_8q = tempera_simulada_8rainhas(
-# temp_inicial_8q,
-# taxa_resfriamento_8q,
-# max_iter_sem_melhora_8q,
-# max_iter_total_8q
-# )
-# print(f"Número de soluções distintas encontradas: {len(solucoes_8q)}")
-# if len(solucoes_8q) > 0:
-# print("Uma das soluções:")
-# for sol_tuple in list(solucoes_8q)[:1]: # Mostra a primeira encontrada
-#       board_vis = [['.' for _ in range(8)] for _ in range(8)]
-#       for col, row in enumerate(sol_tuple):
-#           board_vis[row][col] = 'Q'
-#       for r in board_vis:
-#           print(' '.join(r))
+        if f_best == 28:
+            break
+
+    return x_best, f_best, historico_T
+
+def encontrar_92_solucoes():
+    solucoes_unicas = set()
+    total_execucoes = 0
+    inicio = time.time()
+
+    while len(solucoes_unicas) < 92:
+        solucao, aptidao, historico_T = simulated_annealing()
+        total_execucoes += 1
+
+        if aptidao == 28:
+            tupla = tuple(solucao)
+            if tupla not in solucoes_unicas:
+                solucoes_unicas.add(tupla)
+                print(f"✅ Solução {len(solucoes_unicas)} encontrada na execução {total_execucoes}: {solucao}")
+
+                # Visualização opcional
+                plotar_tabuleiro_8rainhas(solucao)
+                plt.figure(figsize=(8, 4))
+                plt.plot(historico_T)
+                plt.title(f'Decaimento da Temperatura - Solução {len(solucoes_unicas)}')
+                plt.xlabel('Iteração')
+                plt.ylabel('Temperatura')
+                plt.grid(True)
+                plt.tight_layout()
+                plt.show()
+
+    fim = time.time()
+    print(f"\n✔️ Total de 92 soluções únicas encontradas.")
+    print(f"🔁 Total de execuções necessárias: {total_execucoes}")
+    print(f"⏱️ Tempo total: {fim - inicio:.2f} segundos")
+
+    return solucoes_unicas, total_execucoes
+
+# Executar a função para encontrar todas as 92 soluções únicas
+solucoes_finais, total_execucoes = encontrar_92_solucoes()
+
+# Exibir as soluções encontradas
+print(f"\n✅ Total de 92 soluções encontradas (detalhadas):\n")
+for i, sol in enumerate(sorted(solucoes_finais), 1):
+    print(f"{i:02d}: {sol}")
+
+# Exibir o total de execuções realizadas
+print(f"\n🔁 Total de execuções necessárias para encontrar todas as soluções: {total_execucoes}")
+
